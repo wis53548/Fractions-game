@@ -1,0 +1,1818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fraction Quest</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #1e1e2f;
+            touch-action: none;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        canvas {
+            image-rendering: optimizeSpeed;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .pointer-events-auto {
+            pointer-events: auto;
+        }
+        /* Custom Scrollbar */
+        .custom-scroll::-webkit-scrollbar { width: 8px; }
+        .custom-scroll::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.1); border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.3); border-radius: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.5); }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas" width="960" height="540"></canvas>
+
+    <!-- Fullscreen Button -->
+    <button onclick="window.toggleFullscreen()" class="fixed top-4 right-4 z-[100] p-3 bg-slate-800/80 hover:bg-slate-700 rounded-xl border-2 border-slate-600 text-white shadow-lg backdrop-blur-sm transition-all pointer-events-auto group" title="Toggle Fullscreen">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="group-hover:scale-110 transition-transform"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>
+    </button>
+
+    <!-- Login Screen -->
+    <div id="ui-login" class="ui-layer bg-slate-900 pointer-events-auto z-50">
+        <h1 class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 mb-8 drop-shadow-lg text-center">Fraction Quest</h1>
+        <div class="bg-slate-800 border-4 border-slate-600 p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-md w-11/12">
+            <h2 class="text-2xl font-bold text-white mb-6">Enter your name to play!</h2>
+            <input type="text" id="login-username" class="w-full px-4 py-3 rounded-xl text-xl mb-6 bg-slate-700 text-white border-2 border-slate-500 focus:border-blue-400 outline-none text-center" placeholder="Username" maxlength="15">
+            <button onclick="window.loginUser()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-2xl shadow-[0_6px_0_#047857] active:shadow-[0_0px_0_#047857] active:translate-y-[6px] transition-all">Sign In</button>
+        </div>
+    </div>
+
+    <!-- Main Menu -->
+    <div id="ui-menu" class="ui-layer bg-slate-900/90 pointer-events-auto transition-opacity duration-300 hidden">
+        <h1 class="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 mb-2 text-center drop-shadow-lg">Fraction Quest</h1>
+        <p class="text-slate-300 text-xl mb-6 font-semibold">Welcome, <span id="display-username" class="text-amber-400">Player</span>!</p>
+        
+        <div class="flex flex-col md:flex-row gap-8 items-start justify-center">
+            <!-- Play Controls -->
+            <div class="flex flex-col gap-4 bg-slate-800/80 p-6 rounded-2xl border-2 border-slate-700">
+                <button onclick="window.startGame(false)" class="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xl shadow-[0_6px_0_#1d4ed8] active:shadow-[0_0px_0_#1d4ed8] active:translate-y-[6px] transition-all">Play (Keyboard)</button>
+                <button onclick="window.startGame(true)" class="px-8 py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xl shadow-[0_6px_0_#047857] active:shadow-[0_0px_0_#047857] active:translate-y-[6px] transition-all">Play (Touch/Tablet)</button>
+                
+                <div id="admin-controls" class="hidden mt-4 pt-4 border-t-2 border-slate-600">
+                    <p class="text-amber-400 font-bold mb-2 text-center">Admin Level Select</p>
+                    <div class="grid grid-cols-5 gap-2 text-sm">
+                        <button onclick="window.adminStartLevel(0)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">1</button>
+                        <button onclick="window.adminStartLevel(1)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">2</button>
+                        <button onclick="window.adminStartLevel(2)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">3</button>
+                        <button onclick="window.adminStartLevel(3)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">4</button>
+                        <button onclick="window.adminStartLevel(4)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">5</button>
+                        <button onclick="window.adminStartLevel(5)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">6</button>
+                        <button onclick="window.adminStartLevel(6)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">7</button>
+                        <button onclick="window.adminStartLevel(7)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">8</button>
+                        <button onclick="window.adminStartLevel(8)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">9</button>
+                        <button onclick="window.adminStartLevel(9)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">10</button>
+                        <button onclick="window.adminStartLevel(10)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">11</button>
+                        <button onclick="window.adminStartLevel(11)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">12</button>
+                        <button onclick="window.adminStartLevel(12)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">13</button>
+                        <button onclick="window.adminStartLevel(13)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">14</button>
+                        <button onclick="window.adminStartLevel(14)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">15</button>
+                        <button onclick="window.adminStartLevel(15)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">16</button>
+                        <button onclick="window.adminStartLevel(16)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">17</button>
+                        <button onclick="window.adminStartLevel(17)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">18</button>
+                        <button onclick="window.adminStartLevel(18)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">19</button>
+                        <button onclick="window.adminStartLevel(19)" class="bg-slate-700 hover:bg-slate-600 text-white py-2 rounded">20</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Scoreboard -->
+            <div class="bg-slate-800/80 p-6 rounded-2xl border-2 border-slate-700 w-64">
+                <h3 class="text-xl font-bold text-amber-400 mb-4 border-b-2 border-slate-600 pb-2 text-center">Top Scores</h3>
+                <div id="scoreboard-list" class="flex flex-col gap-2 text-slate-200">
+                    <div class="text-center text-slate-400 italic">Loading scores...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lesson Screen -->
+    <div id="ui-lesson" class="ui-layer bg-slate-900/95 pointer-events-auto hidden">
+        <div class="bg-slate-800 border-4 border-slate-600 rounded-2xl p-8 max-w-3xl w-11/12 max-h-[90vh] flex flex-col shadow-2xl">
+            <h2 id="lesson-title" class="text-4xl font-bold text-amber-400 mb-4 border-b-2 border-slate-600 pb-2">Lesson Title</h2>
+            <div id="lesson-content" class="text-slate-200 text-lg flex-grow overflow-y-auto custom-scroll pr-4 space-y-6">
+                <!-- Content injected here -->
+            </div>
+            <button onclick="window.closeLessonAndPlay()" class="mt-6 px-6 py-3 bg-amber-500 hover:bg-amber-400 text-amber-950 font-bold rounded-xl text-xl shadow-[0_5px_0_#b45309] active:shadow-[0_0px_0_#b45309] active:translate-y-[5px] transition-all self-end">Start Level</button>
+        </div>
+    </div>
+
+    <!-- Question Modal -->
+    <div id="ui-question" class="ui-layer bg-black/80 pointer-events-auto hidden backdrop-blur-sm z-[60]">
+        <div class="bg-gradient-to-b from-blue-900 to-slate-900 border-4 border-blue-400 rounded-3xl p-8 max-w-2xl w-11/12 shadow-[0_0_40px_rgba(59,130,246,0.5)] flex flex-col items-center text-center transform transition-transform scale-95" id="question-box">
+            <h3 class="text-4xl font-bold text-white mb-6" id="question-text">Question Text?</h3>
+            
+            <div id="question-visual-container" class="bg-slate-800/80 rounded-2xl p-4 mb-8 flex justify-center items-center border-2 border-slate-600 shadow-inner">
+                <!-- Enhanced canvas for visual models -->
+                <canvas id="questionCanvas" width="400" height="200"></canvas>
+            </div>
+
+            <div id="question-options" class="grid grid-cols-2 gap-4 w-full">
+                <!-- Options injected here -->
+            </div>
+            
+            <div id="question-feedback" class="mt-6 text-2xl font-bold hidden h-8"></div>
+        </div>
+    </div>
+
+    <!-- HUD -->
+    <div id="ui-hud" class="ui-layer pointer-events-none hidden justify-start items-start p-4">
+        <div class="w-full flex justify-between items-start pointer-events-none drop-shadow-md">
+            <div class="flex gap-4">
+                <div class="bg-slate-900/80 border-2 border-slate-700 px-4 py-2 rounded-lg text-white font-bold text-xl backdrop-blur-sm">
+                    Score: <span id="hud-score" class="text-amber-400">0</span>
+                </div>
+                <div class="bg-slate-900/80 border-2 border-slate-700 px-4 py-2 rounded-lg text-white font-bold text-xl backdrop-blur-sm">
+                    Level: <span id="hud-level" class="text-emerald-400">1</span>
+                </div>
+            </div>
+            <div class="flex gap-4 pr-16"> <!-- Padding right to accommodate fullscreen button -->
+                <div class="bg-slate-900/80 border-2 border-slate-700 px-4 py-2 rounded-lg text-white font-bold text-xl backdrop-blur-sm text-right hidden sm:block">
+                    <div id="hud-status">Find the exit!</div>
+                </div>
+                <!-- Menu Button inside level -->
+                <button onclick="window.resetGameToMenu()" class="pointer-events-auto bg-red-600/90 hover:bg-red-500 border-2 border-red-800 px-4 py-2 rounded-lg text-white font-bold text-xl backdrop-blur-sm transition-colors shadow-lg">Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Touch Controls -->
+    <div id="ui-touch" class="absolute inset-0 pointer-events-none z-40 hidden flex-col justify-end p-6 pb-12">
+        <div class="flex justify-between w-full pointer-events-none">
+            <div class="flex gap-4 pointer-events-auto">
+                <button id="btn-left" class="w-20 h-20 bg-slate-100/20 backdrop-blur-md border-2 border-white/30 rounded-full flex items-center justify-center text-4xl text-white font-bold touch-manipulation active:bg-white/40 shadow-lg select-none">◄</button>
+                <button id="btn-right" class="w-20 h-20 bg-slate-100/20 backdrop-blur-md border-2 border-white/30 rounded-full flex items-center justify-center text-4xl text-white font-bold touch-manipulation active:bg-white/40 shadow-lg select-none">►</button>
+            </div>
+            <div class="pointer-events-auto flex items-end pr-16 sm:pr-0">
+                <button id="btn-jump" class="w-24 h-24 bg-blue-500/40 backdrop-blur-md border-2 border-blue-300/50 rounded-full flex items-center justify-center text-2xl text-white font-bold touch-manipulation active:bg-blue-400/60 shadow-[0_0_15px_rgba(59,130,246,0.5)] select-none">JUMP</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over / Victory -->
+    <div id="ui-end" class="ui-layer bg-black/90 pointer-events-auto hidden flex-col">
+        <h2 id="end-title" class="text-6xl font-black text-white mb-4 drop-shadow-lg">Game Over</h2>
+        <p class="text-slate-300 text-2xl mb-8">Final Score: <span id="end-score" class="text-amber-400 font-bold">0</span></p>
+        <button onclick="window.resetGameToMenu()" class="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xl shadow-[0_6px_0_#1d4ed8] active:shadow-[0_0px_0_#1d4ed8] active:translate-y-[6px] transition-all">Back to Menu</button>
+    </div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+import { getFirestore, collection, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+// --- FIREBASE GLOBALS ---
+let db, auth, currentUser, appId;
+let username = "";
+let isAdmin = false;
+
+// --- GAME CONFIGURATION & GLOBALS ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d', { alpha: false }); 
+const qCanvas = document.getElementById('questionCanvas');
+const qCtx = qCanvas.getContext('2d');
+
+const CANVAS_WIDTH = 960;
+const CANVAS_HEIGHT = 540;
+const TILE_SIZE = 40;
+
+// Game State
+let gameState = 'LOGIN'; 
+let useTouchControls = false;
+let currentLevelIndex = 0;
+let score = 0;
+let pointsPerQuestion = 100;
+let pointsPerEnemy = 50;
+let lastTime = 0;
+let animationFrameId;
+
+// Input
+const keys = { left: false, right: false, up: false };
+
+// Map Entities
+let player;
+let entities = [];
+let particles = [];
+let tileMap = [];
+let mapWidth = 0;
+let mapHeight = 0;
+let camera = { x: 0, y: 0 };
+
+// --- FIREBASE INITIALIZATION ---
+async function initFirebase() {
+    if (typeof __firebase_config === 'undefined') return;
+    try {
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        auth = getAuth(app);
+        db = getFirestore(app);
+        appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+            await signInAnonymously(auth);
+        }
+
+        onAuthStateChanged(auth, (user) => {
+            currentUser = user;
+            if (user) {
+                setupScoreboardListener();
+            }
+        });
+    } catch (e) { console.error("Firebase Init Error:", e); }
+}
+
+function setupScoreboardListener() {
+    if (!currentUser || !db) return;
+    const scoresRef = collection(db, 'artifacts', appId, 'public', 'data', 'scores');
+    onSnapshot(scoresRef, (snapshot) => {
+        let scores = [];
+        snapshot.forEach(doc => scores.push(doc.data()));
+        scores.sort((a, b) => b.score - a.score);
+        renderScoreboard(scores.slice(0, 5)); // Top 5
+    }, (error) => { console.error("Snapshot error:", error); });
+}
+
+async function saveScoreToCloud() {
+    if (!currentUser || !db || !username || score === 0) return;
+    try {
+        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'scores', currentUser.uid);
+        await setDoc(docRef, {
+            username: username,
+            score: score,
+            timestamp: Date.now()
+        }, { merge: true });
+    } catch (e) { console.error("Save score error:", e); }
+}
+
+function renderScoreboard(topScores) {
+    const list = document.getElementById('scoreboard-list');
+    list.innerHTML = '';
+    if (topScores.length === 0) {
+        list.innerHTML = '<div class="text-center text-slate-400 italic">No scores yet!</div>';
+        return;
+    }
+    topScores.forEach((s, idx) => {
+        const item = document.createElement('div');
+        item.className = "flex justify-between items-center bg-slate-700 px-3 py-1 rounded";
+        item.innerHTML = `
+            <span class="font-bold truncate max-w-[100px]" title="${s.username}">${idx + 1}. ${s.username}</span>
+            <span class="text-emerald-400 font-mono">${s.score}</span>
+        `;
+        list.appendChild(item);
+    });
+}
+
+// --- EDUCATIONAL CONTENT (20 LEVELS - GRADUAL BUILDUP AND JUMPABLE MAPS) ---
+const levelsData = [
+    {
+        title: "Level 1: Visualizing Simple Fractions",
+        lesson: `
+            <p>Welcome to Fraction Quest! Let's review the basics.</p>
+            <p>A <strong>fraction</strong> represents a part of a whole.</p>
+            <div class="bg-slate-700/50 p-4 rounded-lg my-4 flex items-center gap-6">
+                <!-- SVG Visual with explicit dividing lines -->
+                <svg width="100" height="100" viewBox="0 0 100 100" class="rounded-full bg-slate-800 shrink-0">
+                    <path d="M50,50 L50,0 A50,50 0 0,1 100,50 Z" fill="#3b82f6"/>
+                    <line x1="50" y1="0" x2="50" y2="100" stroke="#94a3b8" stroke-width="2"/>
+                    <line x1="0" y1="50" x2="100" y2="50" stroke="#94a3b8" stroke-width="2"/>
+                    <circle cx="50" cy="50" r="49" fill="none" stroke="#94a3b8" stroke-width="2"/>
+                </svg>
+                <div>
+                    <p class="text-blue-300 font-bold text-xl">Numerator (Top)</p>
+                    <p class="text-sm text-slate-300">How many parts we have (1 shaded part).</p>
+                    <hr class="border-slate-500 my-2">
+                    <p class="text-amber-300 font-bold text-xl">Denominator (Bottom)</p>
+                    <p class="text-sm text-slate-300">Total parts in the whole (4 total parts).</p>
+                    <p class="mt-2 font-black text-2xl text-white">Result: 1/4</p>
+                </div>
+            </div>
+            <p>Touch the spinning <strong>[?] Gems</strong> to test your knowledge.</p>
+        `,
+        type: "identify_simple",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            ".........................Q.......................Q....................",
+            ".......................22222...................22222..................",
+            ".......Q......Q......................Q.......................Q......X.",
+            ".....22222..22222..................22222...................22222..2222",
+            "......................................................................",
+            "E..................E.........................E........................",
+            "2222222222222222222222222000222222222222222222222000222222222222222222"
+        ]
+    },
+    {
+        title: "Level 2: Visualizing More Fractions",
+        lesson: `
+            <p>Great start! Let's practice identifying a few more fractions.</p>
+            <p>Remember, the <strong>denominator (bottom)</strong> is the <em>total</em> number of pieces the shape is cut into.</p>
+            <p>The <strong>numerator (top)</strong> is the number of colored pieces.</p>
+        `,
+        type: "identify",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "...............................Q.......................Q..............",
+            ".............................22222...................22222............",
+            ".........Q.......Q.......................Q..........................X.",
+            ".......22222...22222...................22222......................2222",
+            "...........................................................Q..........",
+            "..........................J..............................22222........",
+            ".....E..................222222..................E.....................",
+            "......................................................................",
+            "2222222222002222222200002222220000022222222200022222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 3: Comparing (Same Bottom)",
+        lesson: `
+            <p>Now we will learn to <strong>compare</strong> fractions.</p>
+            <p>If the denominators (bottoms) are the same, it's easy! The fraction with the bigger top number is larger.</p>
+            <div class="bg-slate-700/50 p-4 rounded-lg my-4 text-center flex items-center justify-center gap-6">
+                <div>
+                   <svg width="60" height="60" viewBox="0 0 100 100" class="rounded-full bg-slate-800 shrink-0">
+                        <path d="M50,50 L50,0 A50,50 0 1,1 0,50 Z" fill="#3b82f6"/> <!-- 3/4 -->
+                        <line x1="50" y1="0" x2="50" y2="100" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="0" y1="50" x2="100" y2="50" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="50" cy="50" r="49" fill="none" stroke="#94a3b8" stroke-width="2"/>
+                    </svg>
+                    <p class="font-bold text-xl mt-2">3/4</p>
+                </div>
+                <p class="text-4xl font-black text-amber-400">></p>
+                <div>
+                   <svg width="60" height="60" viewBox="0 0 100 100" class="rounded-full bg-slate-800 shrink-0">
+                        <path d="M50,50 L50,0 A50,50 0 0,1 100,50 Z" fill="#3b82f6"/> <!-- 1/4 -->
+                        <line x1="50" y1="0" x2="50" y2="100" stroke="#94a3b8" stroke-width="2"/>
+                        <line x1="0" y1="50" x2="100" y2="50" stroke="#94a3b8" stroke-width="2"/>
+                        <circle cx="50" cy="50" r="49" fill="none" stroke="#94a3b8" stroke-width="2"/>
+                    </svg>
+                    <p class="font-bold text-xl mt-2">1/4</p>
+                </div>
+            </div>
+        `,
+        type: "compare_like_den",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            ".....................................Q................................",
+            "...................Q...............22222...................Q........X.",
+            ".................22222...................................22222....2222",
+            ".......Q......................................Q.......................",
+            ".....22222..................................22222.....................",
+            "............................E.........................................",
+            "..........................22222.......................J...............",
+            "....................................................222222............",
+            "2222222222000222222220000022222000022222222220002222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 4: Comparing (Same Top)",
+        lesson: `
+            <p>What if the <strong>numerators (tops)</strong> are the same?</p>
+            <p>If the tops are the same, the fraction with the <strong>smaller</strong> bottom number is actually larger!</p>
+            <div class="bg-slate-700/50 p-4 rounded-lg my-4 text-center">
+                <p class="text-3xl font-bold">1/2 > 1/4</p>
+                <p class="text-slate-300">Would you rather have 1 piece of a pizza cut into 2 huge pieces, or 1 piece of a pizza cut into 4 smaller pieces?</p>
+            </div>
+        `,
+        type: "compare_like_num",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            ".........................................Q............................",
+            ".........................Q.............22222.......................X..",
+            ".......................22222.........................Q...........2222.",
+            ".........Q.........................................22222..............",
+            ".......22222......................F...................................",
+            "................................22222......................E..........",
+            "......................J..................................22222........",
+            "....................222222............................................",
+            "......................................................................",
+            "2222222222220002222222222200000222222222222000222222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 5: Mixed Comparing",
+        lesson: `
+            <p>Let's mix it up! You'll see fractions with the same top, or fractions with the same bottom.</p>
+            <p>Use what you learned in the last two levels to pick the larger fraction.</p>
+            <ul class="list-disc ml-6 mt-2 text-amber-200">
+                <li>Same Bottom = Bigger top wins.</li>
+                <li>Same Top = Smaller bottom wins.</li>
+            </ul>
+        `,
+        type: "compare",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "...................................................Q..................",
+            ".................................................22222................",
+            ".............................Q......................................X.",
+            "...........................22222.................................2222.",
+            ".............Q...........................F............................",
+            "...........22222.......................22222.........Q................",
+            "...................................................22222..............",
+            ".......Q.....................E........................................",
+            ".....22222.................22222......................................",
+            "......................................................................",
+            "2222222222200022222220000022222222000222222220002222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 6: Intro to Equivalent Fractions",
+        lesson: `
+            <p>Equivalent fractions look different but represent the <em>exact same amount</em>.</p>
+            <div class="flex justify-around items-center bg-slate-700/50 p-4 rounded-lg my-4">
+                <div class="text-center">
+                    <svg width="60" height="60" viewBox="0 0 100 100" class="rounded-full bg-slate-800 border-2 border-slate-400 mx-auto">
+                        <path d="M50,100 A50,50 0 0,0 50,0 Z" fill="#10b981"/>
+                        <line x1="50" y1="0" x2="50" y2="100" stroke="#0f172a" stroke-width="2"/>
+                    </svg>
+                    <p class="mt-2 font-bold text-xl">1/2</p>
+                </div>
+                <div class="text-3xl font-black">=</div>
+                <div class="text-center">
+                    <svg width="60" height="60" viewBox="0 0 100 100" class="rounded-full bg-slate-800 border-2 border-slate-400 mx-auto">
+                        <path d="M50,100 A50,50 0 0,0 50,0 Z" fill="#10b981"/>
+                        <line x1="50" y1="0" x2="50" y2="100" stroke="#0f172a" stroke-width="2"/>
+                        <line x1="0" y1="50" x2="100" y2="50" stroke="#0f172a" stroke-width="2"/>
+                    </svg>
+                    <p class="mt-2 font-bold text-xl">2/4</p>
+                </div>
+            </div>
+            <p>Find equivalent fractions by multiplying the top and bottom by the <strong>same number</strong>.</p>
+        `,
+        type: "equivalent_simple",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            ".......................................Q..............................",
+            ".....................................22222.......................X....",
+            ".......................Q..........................Q............2222...",
+            ".....................22222......................22222.................",
+            ".........Q............................................................",
+            ".......22222..........................................................",
+            "..........................J.............................E.............",
+            "........................22222.........................22222...........",
+            "......................................................................",
+            "2222222222220002222222222222220002222222222200022222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 7: Equivalent Practice",
+        lesson: `
+            <p>Let's do some more practice with equivalent fractions.</p>
+            <p>Remember the golden rule: Whatever you multiply the top by, you <strong>must multiply the bottom by the same number!</strong></p>
+            <div class="bg-slate-700/50 p-4 rounded-lg my-4 text-center">
+                <p class="text-xl font-bold text-blue-300">1/3 × (2/2) = 2/6</p>
+                <p class="text-xl font-bold text-emerald-300 mt-2">1/3 × (3/3) = 3/9</p>
+            </div>
+        `,
+        type: "equivalent",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "................................................Q.....................",
+            "..............................................22222...................",
+            "....................................................................X.",
+            "...................Q................F.............................2222",
+            ".................22222............22222..............Q................",
+            "...................................................22222..............",
+            ".......Q..............................................................",
+            ".....22222...................E........................................",
+            "...........................22222......................................",
+            "......................................................................",
+            "2222222222000222222200000222222222000222222220002222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 8: Adding Like Denominators",
+        lesson: `
+            <p>When the denominators (bottom numbers) are the same, adding fractions is easy!</p>
+            <div class="bg-slate-700/50 p-4 rounded-lg my-4 text-center">
+                <p class="text-3xl font-bold mb-2">1/4 + 2/4 = <span class="text-emerald-400">3/4</span></p>
+                <p class="text-lg text-slate-300">You just add the top numbers together. The bottom number <strong>stays the same</strong>.</p>
+            </div>
+        `,
+        type: "add_like",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            ".......................................................Q..............",
+            ".....................................................22222.........X..",
+            ".........................Q.......................................2222.",
+            ".......................22222..............Q...........................",
+            "...........Q............................22222.........................",
+            ".........22222........................................................",
+            "................................................E.....................",
+            "..............................................22222...................",
+            ".......................J..............................................",
+            "2222222222200022222222222222200022222222000222222222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 9: More Adding",
+        lesson: `
+            <p>More practice adding fractions with the same denominator.</p>
+            <p>Just add the numerators. Try not to let the enemies distract you from the math!</p>
+        `,
+        type: "add_like",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "....................................................Q.................",
+            "..................................................22222...............",
+            "....................................................................X.",
+            ".........................Q..............F.........................2222",
+            ".......................22222..........22222...........Q...............",
+            "...........Q........................................22222.............",
+            ".........22222........................................................",
+            "......................................................................",
+            "..............................E.......................................",
+            "............................22222.....................................",
+            "2222222200022222220000022222222220002222222200022222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 10: Subtracting Like Denominators",
+        lesson: `
+            <p>Subtracting is just like adding when the bottoms are the same.</p>
+            <div class="bg-slate-700/50 p-4 rounded-lg my-4 text-center">
+                <p class="text-3xl font-bold mb-2">3/5 - 1/5 = <span class="text-amber-400">2/5</span></p>
+                <p class="text-lg text-slate-300">Subtract the top numbers. Keep the bottom number the same.</p>
+            </div>
+        `,
+        type: "subtract_like",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            ".....................................................Q................",
+            "...................................................22222...........X..",
+            ".......................Q.........................................2222.",
+            ".....................22222.................Q..........................",
+            ".........Q...............................22222........................",
+            ".......22222..........................................................",
+            "................................E.....................................",
+            "..............................22222...................................",
+            "......................................................................",
+            "2222222222200022222222200022222222220002222222222222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 11: Subtracting Practice",
+        lesson: `
+            <p>Keep going with subtraction! If you have 4 slices of an 8-slice pizza, and you eat 3, how many are left?</p>
+            <p class="text-emerald-400 font-bold mt-2 text-2xl text-center">4/8 - 3/8 = 1/8.</p>
+        `,
+        type: "subtract_like",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................Q...............................",
+            "....................................22222.............................",
+            "....................................................................X.",
+            ".......................F..........................................2222",
+            "........Q............22222.......................Q....................",
+            "......22222....................................22222..................",
+            "......................................................................",
+            "...................................J..................................",
+            ".................................222222...............................",
+            "......................................................................",
+            "2222222200022222220000022222220002222222200022222222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 12: Adding Unlike Intro",
+        lesson: `
+            <p>Here is the biggest 5th-grade challenge: <strong>Adding Fractions with Unlike Denominators</strong>.</p>
+            <p>You <em>cannot</em> add fractions if the bottom numbers are different. You must find a <strong>Common Denominator</strong>.</p>
+            <div class="bg-slate-700/50 p-4 rounded-lg my-4 text-center">
+                <p class="text-xl font-bold mb-2">Problem: 1/2 + 1/4</p>
+                <div class="flex justify-center items-center gap-4 text-lg">
+                    <div>
+                        <p class="text-blue-300">Change 1/2 to 4ths.</p>
+                        <p>(1 × 2) / (2 × 2) = <strong>2/4</strong></p>
+                    </div>
+                    <div class="text-3xl">→</div>
+                    <div>
+                        <p class="text-emerald-300">Now add!</p>
+                        <p>2/4 + 1/4 = <strong>3/4</strong></p>
+                    </div>
+                </div>
+            </div>
+        `,
+        type: "add_unlike",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            ".................................................Q....................",
+            "...............................................22222...............X..",
+            "...........................Q.....................................2222.",
+            ".........................22222........................................",
+            ".............Q...........................Q............................",
+            "...........22222.......................22222..........................",
+            "......................................................................",
+            "......................................................E...............",
+            "....................................................22222.............",
+            "2222222220002222222000002222222220002222222220002222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 13: Adding Unlike Practice",
+        lesson: `
+            <p>Let's practice adding unlike denominators again.</p>
+            <div class="bg-slate-700/50 p-4 rounded-lg my-4 text-center">
+                <p class="text-xl font-bold mb-2">1/3 + 1/6 = ?</p>
+                <p class="text-lg">Change 1/3 to 6ths (multiply top & bottom by 2): 1/3 = <span class="text-blue-400">2/6</span>.</p>
+                <p class="text-2xl font-bold text-emerald-400 mt-2">2/6 + 1/6 = 3/6</p>
+            </div>
+            <p class="text-sm text-slate-300">(You might even recognize that 3/6 is equivalent to 1/2!)</p>
+        `,
+        type: "add_unlike",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "....................................................Q.................",
+            "..................................................22222..............X",
+            "................................F..................................222",
+            "................Q.............22222...................................",
+            "..............22222...........................Q.......................",
+            "............................................22222.....................",
+            "......................................................................",
+            "............................E.........................................",
+            "..........................22222.......................................",
+            "2222222000222222200000222222222000222222222000222222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 14: Subtracting Unlike",
+        lesson: `
+            <p>If you can add unlike denominators, you can subtract them too!</p>
+            <p>First find the <strong>Common Denominator</strong>, then subtract the top numbers.</p>
+            <div class="bg-slate-700/50 p-4 rounded-lg my-4 text-center">
+                <p class="text-2xl font-bold text-blue-300">1/2 - 1/4</p>
+                <p class="text-2xl font-bold text-white mt-2">↓</p>
+                <p class="text-2xl font-bold text-emerald-400 mt-2">2/4 - 1/4 = 1/4</p>
+            </div>
+        `,
+        type: "subtract_unlike",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "..................................................Q................X..",
+            "............................Q...................22222............2222.",
+            "..........................22222.......................................",
+            ".............Q........................................................",
+            "...........22222..........................Q...........................",
+            "........................................22222.........................",
+            "........................................................J.............",
+            "......................................................222222..........",
+            "2222222000222222200022222222200000222222222000222222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 15: Intro to Multiplication",
+        lesson: `
+            <p>You made it to <strong>Multiplying Fractions</strong>!</p>
+            <p>It's actually easier than adding. Multiply the top numbers straight across, then multiply the bottom numbers straight across.</p>
+            <div class="bg-slate-700/50 p-4 rounded-lg my-4 text-center">
+                <p class="text-xl font-bold mb-2">Problem: 1/2 × 3/4</p>
+                <div class="inline-block bg-slate-800 p-4 rounded border border-slate-600">
+                    <p class="text-2xl font-mono text-emerald-400">  1 × 3 = 3 </p>
+                    <hr class="border-slate-500 my-1">
+                    <p class="text-2xl font-mono text-blue-400">  2 × 4 = 8 </p>
+                    <p class="mt-2 text-xl font-bold text-amber-300">Answer: 3/8</p>
+                </div>
+            </div>
+        `,
+        type: "multiply",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            ".....................................................Q................",
+            "...................................................22222..............",
+            "....................................................................X.",
+            "...................................F..............................2222",
+            "................Q................22222................................",
+            "..............22222...................................................",
+            "...............................................Q......................",
+            ".............................................22222....................",
+            "......................................................................",
+            "......................................................................",
+            "2222220000222222000022222222200002222222200022222222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 16: Multiply Master",
+        lesson: `
+            <p>More multiplication! Remember: Top times Top, Bottom times Bottom.</p>
+            <div class="bg-slate-700/50 p-4 rounded-lg my-4 text-center">
+                <p class="text-amber-300 font-bold">Did you know?</p>
+                <p class="text-sm">Multiplying a fraction by another proper fraction gives you an answer that is <em>smaller</em> than what you started with! You're taking a part of a part.</p>
+            </div>
+        `,
+        type: "multiply",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................Q...............",
+            "....................................................22222..........X..",
+            "............................Q....................................2222.",
+            "..........................22222.......................................",
+            "..............Q...............................F.......................",
+            "............22222...........................22222.....................",
+            "......................................................................",
+            "........................................................E.............",
+            "......................................................22222...........",
+            "2222220002222222000022222222000222222220002222222222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 17: Mixed Review 1",
+        lesson: `
+            <p>Time to mix it up! You've learned so many skills.</p>
+            <p>This level will test you on <strong>Adding, Subtracting, and Equivalent Fractions</strong>.</p>
+            <p>Read each question carefully to see what it's asking you to do!</p>
+        `,
+        type: "mixed_1",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................Q............X..",
+            ".......................................Q............22222........2222.",
+            ".......................Q.............22222............................",
+            ".....................22222............................................",
+            "..........Q...........................................................",
+            "........22222.........................................................",
+            "................................................J.....................",
+            "..............................................222222..................",
+            "2222222000222222000222222200022222222200022222222222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 18: Mixed Review 2",
+        lesson: `
+            <p>Keep your wits about you! Now we're adding <strong>Unlike Denominators</strong> into the mix.</p>
+            <p>If you see a plus or minus sign, check the denominators first!</p>
+        `,
+        type: "mixed_2",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            ".....................................................Q................",
+            "...................................................22222...........X..",
+            ".................................................................2222.",
+            "...........................Q..............F...........................",
+            ".........................22222..........22222.........................",
+            "............Q.........................................................",
+            "..........22222.......................................................",
+            "........................................................E.............",
+            "......................................................22222...........",
+            "2222220002222222000002222222220002222222000222222222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 19: The Gauntlet",
+        lesson: `
+            <p>The jumps are a bit longer. The questions are trickier. This is the Gauntlet.</p>
+            <p>Expect anything: <strong>Addition, Subtraction, Multiplication, Comparisons!</strong></p>
+            <p class="mt-4 font-bold text-amber-400">Patience is the key.</p>
+        `,
+        type: "mixed_all",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            ".....................................................Q................",
+            "...................................................22222..............",
+            "....................................................................X.",
+            ".........................Q................F.......................2222",
+            ".......................22222............22222.........................",
+            "............Q.........................................Q...............",
+            "..........22222.....................................22222.............",
+            "......................................................................",
+            "......................................................................",
+            "2222222000022222200002222222200002222222200022222222222222222222222222"
+        ]
+    },
+    {
+        title: "Level 20: The Grand Master",
+        lesson: `
+            <p class="text-4xl font-black text-blue-400 text-center my-6">The Grand Master Exam</p>
+            <p class="text-center text-xl text-white">This is the ultimate test of your fraction skills and platforming abilities.</p>
+            <p class="mt-8 font-bold text-2xl text-center text-emerald-400">Good luck, Fraction Master!</p>
+        `,
+        type: "mixed_all",
+        map: [
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "......................................................................",
+            "...................................................................X..",
+            ".......................................................Q.........2222.",
+            ".....................................................22222............",
+            ".......................................Q..............................",
+            ".....................................22222............................",
+            "......................Q...............................................",
+            "....................22222.............................................",
+            ".......Q..............................................................",
+            "2222222220000222222222222200002222222222222000222222222222222222222222"
+        ]
+    }
+];
+
+// --- MATH SYSTEM ---
+const MathSystem = {
+    generateQuestion(type) {
+        let q = { text: "", options: [], correctIndex: 0, drawVisual: null };
+
+        // Helper to resolve mixed types
+        if (type === "mixed_1") {
+            const types = ["add_like", "subtract_like", "equivalent"];
+            type = types[Math.floor(Math.random() * types.length)];
+        } else if (type === "mixed_2") {
+            const types = ["add_unlike", "subtract_unlike", "multiply"];
+            type = types[Math.floor(Math.random() * types.length)];
+        } else if (type === "mixed_all") {
+            const types = ["identify", "compare_like_den", "compare_like_num", "equivalent", "add_like", "subtract_like", "add_unlike", "subtract_unlike", "multiply"];
+            type = types[Math.floor(Math.random() * types.length)];
+        }
+
+        if (type === "identify_simple" || type === "identify") {
+            const denominators = type === "identify_simple" ? [2, 3, 4] : [5, 6, 8, 10];
+            const d = denominators[Math.floor(Math.random() * denominators.length)];
+            const n = Math.floor(Math.random() * (d - 1)) + 1; 
+            q.text = "What fraction is shown below?";
+            q.drawVisual = (ctx, w, h) => this.drawPieChart(ctx, w/2, h/2, 70, n, d);
+            
+            let answers = [{n, d}, {n: n+1, d}, {n, d: d+1}, {n: d-n, d}];
+            answers = answers.map(a => `${a.n}/${a.d}`);
+            answers[0] = `${n}/${d}`;
+            while(new Set(answers).size < 4) {
+               answers[1] = `${Math.floor(Math.random()*3)+1}/${d}`;
+               answers[2] = `${n}/${d+Math.floor(Math.random()*3)+1}`;
+               answers[3] = `${Math.floor(Math.random()*4)+1}/${d+2}`;
+            }
+            q.options = this.shuffleOptions(answers);
+            q.correctIndex = q.options.indexOf(`${n}/${d}`);
+
+        } else if (type === "compare_like_den") {
+            const d = Math.floor(Math.random() * 6) + 4; // 4 to 9
+            const n1 = Math.floor(Math.random() * (d-1)) + 1;
+            let n2; do { n2 = Math.floor(Math.random() * (d-1)) + 1; } while(n1 === n2);
+            
+            q.text = `Which fraction is larger?`;
+            q.drawVisual = (ctx, w, h) => {
+                 this.drawPieChart(ctx, w/2 - 80, h/2 - 20, 50, n1, d);
+                 this.drawPieChart(ctx, w/2 + 80, h/2 - 20, 50, n2, d);
+                 ctx.font = "bold 40px sans-serif";
+                 ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                 ctx.fillText("?", w/2, h/2 - 20);
+                 ctx.font = "bold 24px sans-serif";
+                 ctx.fillText(`${n1}/${d}`, w/2 - 80, h/2 + 60);
+                 ctx.fillText(`${n2}/${d}`, w/2 + 80, h/2 + 60);
+            };
+            let correctAnswer = n1 > n2 ? `${n1}/${d}` : `${n2}/${d}`;
+            let answers = [`${n1}/${d}`, `${n2}/${d}`, "They are equal", "Cannot tell"];
+            q.options = this.shuffleOptions(answers);
+            q.correctIndex = q.options.indexOf(correctAnswer);
+
+        } else if (type === "compare_like_num") {
+            const n = Math.floor(Math.random() * 4) + 1;
+            const d1 = Math.floor(Math.random() * 5) + n + 1;
+            let d2; do { d2 = Math.floor(Math.random() * 5) + n + 1; } while(d1 === d2);
+            
+            q.text = `Which fraction is larger?`;
+            q.drawVisual = (ctx, w, h) => {
+                 this.drawPieChart(ctx, w/2 - 80, h/2 - 20, 50, n, d1);
+                 this.drawPieChart(ctx, w/2 + 80, h/2 - 20, 50, n, d2);
+                 ctx.font = "bold 40px sans-serif";
+                 ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                 ctx.fillText("?", w/2, h/2 - 20);
+                 ctx.font = "bold 24px sans-serif";
+                 ctx.fillText(`${n}/${d1}`, w/2 - 80, h/2 + 60);
+                 ctx.fillText(`${n}/${d2}`, w/2 + 80, h/2 + 60);
+            };
+            let correctAnswer = d1 < d2 ? `${n}/${d1}` : `${n}/${d2}`;
+            let answers = [`${n}/${d1}`, `${n}/${d2}`, "They are equal", "Cannot tell"];
+            q.options = this.shuffleOptions(answers);
+            q.correctIndex = q.options.indexOf(correctAnswer);
+
+        } else if (type === "compare") {
+            // Re-uses logic from above randomly
+            const isLikeDen = Math.random() > 0.5;
+            let d1, d2, n1, n2, correctAnswer;
+            if (isLikeDen) {
+                const d = Math.floor(Math.random() * 6) + 4;
+                n1 = Math.floor(Math.random() * (d-1)) + 1;
+                do { n2 = Math.floor(Math.random() * (d-1)) + 1; } while(n1 === n2);
+                d1 = d; d2 = d;
+                correctAnswer = n1 > n2 ? `${n1}/${d}` : `${n2}/${d}`;
+            } else {
+                const n = Math.floor(Math.random() * 4) + 1;
+                d1 = Math.floor(Math.random() * 5) + n + 1;
+                do { d2 = Math.floor(Math.random() * 5) + n + 1; } while(d1 === d2);
+                n1 = n; n2 = n;
+                correctAnswer = d1 < d2 ? `${n}/${d1}` : `${n}/${d2}`;
+            }
+            q.text = `Which fraction is larger?`;
+            q.drawVisual = (ctx, w, h) => {
+                 this.drawPieChart(ctx, w/2 - 80, h/2 - 20, 50, n1, d1);
+                 this.drawPieChart(ctx, w/2 + 80, h/2 - 20, 50, n2, d2);
+                 ctx.font = "bold 40px sans-serif";
+                 ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                 ctx.fillText("?", w/2, h/2 - 20);
+                 ctx.font = "bold 24px sans-serif";
+                 ctx.fillText(`${n1}/${d1}`, w/2 - 80, h/2 + 60);
+                 ctx.fillText(`${n2}/${d2}`, w/2 + 80, h/2 + 60);
+            };
+            let answers = [`${n1}/${d1}`, `${n2}/${d2}`, "They are equal", "Cannot tell"];
+            q.options = this.shuffleOptions(answers);
+            q.correctIndex = q.options.indexOf(correctAnswer);
+
+        } else if (type === "equivalent_simple" || type === "equivalent") {
+            const bases = type === "equivalent_simple" ? [{n:1,d:2}, {n:1,d:3}, {n:1,d:4}] : [{n:1,d:2}, {n:1,d:3}, {n:2,d:3}, {n:1,d:4}, {n:3,d:4}, {n:1,d:5}];
+            const base = bases[Math.floor(Math.random() * bases.length)];
+            const multiplier = type === "equivalent_simple" ? 2 : Math.floor(Math.random() * 3) + 2;
+            const givenN = base.n * multiplier;
+            const givenD = base.d * multiplier;
+            
+            q.text = `Which fraction is equivalent to ${givenN}/${givenD}?`;
+            q.drawVisual = (ctx, w, h) => { 
+                this.drawBarModel(ctx, w/2 - 100, h/2 - 30, 200, 60, givenN, givenD, "#3b82f6"); 
+            };
+            
+            let correctAnswer = `${base.n}/${base.d}`;
+            let wrong1 = `${base.n+1}/${base.d}`;
+            let wrong2 = `${base.n}/${base.d+1}`;
+            let wrong3 = `${base.n*2}/${base.d+3}`;
+            let answers = [correctAnswer, wrong1, wrong2, wrong3];
+            q.options = this.shuffleOptions(answers);
+            q.correctIndex = q.options.indexOf(correctAnswer);
+
+        } else if (type === "add_like") {
+            const d = Math.floor(Math.random() * 5) + 3; // 3 to 7
+            const n1 = Math.floor(Math.random() * (d-2)) + 1;
+            const n2 = Math.floor(Math.random() * (d-n1)) + 1;
+            q.text = `Add these fractions:`;
+            q.drawVisual = (ctx, w, h) => {
+                 this.drawPieChart(ctx, w/2 - 100, h/2 - 20, 45, n1, d);
+                 this.drawPieChart(ctx, w/2 + 100, h/2 - 20, 45, n2, d);
+                 ctx.font = "bold 40px sans-serif";
+                 ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                 ctx.fillText("+", w/2, h/2 - 20);
+                 ctx.font = "bold 24px sans-serif";
+                 ctx.fillText(`${n1}/${d}`, w/2 - 100, h/2 + 45);
+                 ctx.fillText(`${n2}/${d}`, w/2 + 100, h/2 + 45);
+            };
+            let correctAnswer = `${n1+n2}/${d}`;
+            let answers = [
+                correctAnswer,
+                `${n1+n2}/${d+d}`,
+                `${n1*n2}/${d}`,
+                `${Math.abs(n1-n2)}/${d}`
+            ];
+            while(new Set(answers).size < 4) {
+                answers[3] = `${Math.floor(Math.random()*8)+1}/${d}`;
+                if(new Set(answers).size < 4) answers[2] = `${Math.floor(Math.random()*5)+1}/${d+d}`;
+            }
+            q.options = this.shuffleOptions(answers);
+            q.correctIndex = q.options.indexOf(correctAnswer);
+
+        } else if (type === "subtract_like") {
+            const d = Math.floor(Math.random() * 6) + 3; // 3 to 8
+            const n1 = Math.floor(Math.random() * (d-2)) + 2; // at least 2
+            const n2 = Math.floor(Math.random() * (n1-1)) + 1; // less than n1
+            q.text = `Subtract these fractions:`;
+            q.drawVisual = (ctx, w, h) => {
+                 this.drawPieChart(ctx, w/2 - 100, h/2 - 20, 45, n1, d);
+                 this.drawPieChart(ctx, w/2 + 100, h/2 - 20, 45, n2, d);
+                 ctx.font = "bold 40px sans-serif";
+                 ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                 ctx.fillText("-", w/2, h/2 - 20);
+                 ctx.font = "bold 24px sans-serif";
+                 ctx.fillText(`${n1}/${d}`, w/2 - 100, h/2 + 45);
+                 ctx.fillText(`${n2}/${d}`, w/2 + 100, h/2 + 45);
+            };
+            let correctAnswer = `${n1-n2}/${d}`;
+            let answers = [
+                correctAnswer,
+                `${n1-n2}/0`,
+                `${n1+n2}/${d}`,
+                `${n1-n2}/${d+d}`
+            ];
+            while(new Set(answers).size < 4) {
+                answers[3] = `${Math.floor(Math.random()*(d-1))+1}/${d}`;
+            }
+            q.options = this.shuffleOptions(answers);
+            q.correctIndex = q.options.indexOf(correctAnswer);
+
+        } else if (type === "add_unlike") {
+            const pairs = [
+                {n1: 1, d1: 2, n2: 1, d2: 4, nA: 3, dA: 4},
+                {n1: 1, d1: 2, n2: 1, d2: 6, nA: 4, dA: 6},
+                {n1: 1, d1: 3, n2: 1, d2: 6, nA: 3, dA: 6},
+                {n1: 1, d1: 4, n2: 1, d2: 8, nA: 3, dA: 8},
+                {n1: 1, d1: 2, n2: 3, d2: 8, nA: 7, dA: 8}
+            ];
+            const pair = pairs[Math.floor(Math.random() * pairs.length)];
+            q.text = `Add (Find Common Denominator):`;
+            q.drawVisual = (ctx, w, h) => {
+                 this.drawPieChart(ctx, w/2 - 100, h/2 - 20, 45, pair.n1, pair.d1);
+                 this.drawPieChart(ctx, w/2 + 100, h/2 - 20, 45, pair.n2, pair.d2);
+                 ctx.font = "bold 40px sans-serif";
+                 ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                 ctx.fillText("+", w/2, h/2 - 20);
+                 ctx.font = "bold 24px sans-serif";
+                 ctx.fillText(`${pair.n1}/${pair.d1}`, w/2 - 100, h/2 + 45);
+                 ctx.fillText(`${pair.n2}/${pair.d2}`, w/2 + 100, h/2 + 45);
+            };
+            let correctAnswer = `${pair.nA}/${pair.dA}`;
+            let answers = [ correctAnswer, `${pair.n1 + pair.n2}/${pair.d1 + pair.d2}`, `${pair.nA - 1}/${pair.dA}`, `${pair.nA + 1}/${pair.dA}` ];
+            q.options = this.shuffleOptions(answers);
+            q.correctIndex = q.options.indexOf(correctAnswer);
+
+        } else if (type === "subtract_unlike") {
+            const pairs = [
+                {n1: 1, d1: 2, n2: 1, d2: 4, nA: 1, dA: 4},
+                {n1: 1, d1: 2, n2: 1, d2: 6, nA: 2, dA: 6},
+                {n1: 1, d1: 3, n2: 1, d2: 6, nA: 1, dA: 6},
+                {n1: 3, d1: 4, n2: 1, d2: 8, nA: 5, dA: 8},
+                {n1: 1, d1: 2, n2: 3, d2: 8, nA: 1, dA: 8}
+            ];
+            const pair = pairs[Math.floor(Math.random() * pairs.length)];
+            q.text = `Subtract (Find Common Denominator):`;
+            q.drawVisual = (ctx, w, h) => {
+                 this.drawPieChart(ctx, w/2 - 100, h/2 - 20, 45, pair.n1, pair.d1);
+                 this.drawPieChart(ctx, w/2 + 100, h/2 - 20, 45, pair.n2, pair.d2);
+                 ctx.font = "bold 40px sans-serif";
+                 ctx.fillStyle = "white"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                 ctx.fillText("-", w/2, h/2 - 20);
+                 ctx.font = "bold 24px sans-serif";
+                 ctx.fillText(`${pair.n1}/${pair.d1}`, w/2 - 100, h/2 + 45);
+                 ctx.fillText(`${pair.n2}/${pair.d2}`, w/2 + 100, h/2 + 45);
+            };
+            let correctAnswer = `${pair.nA}/${pair.dA}`;
+            let answers = [ correctAnswer, `${Math.abs(pair.n1 - pair.n2)}/${Math.abs(pair.d1 - pair.d2) || pair.dA}`, `${pair.nA + 1}/${pair.dA}`, `${Math.max(1, pair.nA - 1)}/${pair.dA}` ];
+            while(new Set(answers).size < 4) {
+                 answers[3] = `${Math.floor(Math.random()*5)+1}/${pair.dA}`;
+            }
+            q.options = this.shuffleOptions(answers);
+            q.correctIndex = q.options.indexOf(correctAnswer);
+
+        } else if (type === "multiply") {
+            const n1 = Math.floor(Math.random() * 3) + 1;
+            const d1 = Math.floor(Math.random() * 3) + 2 + n1;
+            const n2 = Math.floor(Math.random() * 3) + 1;
+            const d2 = Math.floor(Math.random() * 3) + 2 + n2;
+            const nA = n1 * n2;
+            const dA = d1 * d2;
+            q.text = `Multiply straight across:`;
+             q.drawVisual = (ctx, w, h) => {
+                 ctx.font = "bold 48px sans-serif";
+                 ctx.fillStyle = "#3b82f6"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                 ctx.fillText(`${n1}`, w/2 - 80, h/2 - 30);
+                 ctx.fillText(`${n2}`, w/2 + 80, h/2 - 30);
+                 ctx.fillStyle = "#10b981"; 
+                 ctx.fillText(`${d1}`, w/2 - 80, h/2 + 30);
+                 ctx.fillText(`${d2}`, w/2 + 80, h/2 + 30);
+                 ctx.fillStyle = "white";
+                 ctx.fillText("×", w/2, h/2);
+                 // Fraction lines
+                 ctx.fillRect(w/2 - 110, h/2 - 2, 60, 4);
+                 ctx.fillRect(w/2 + 50, h/2 - 2, 60, 4);
+            };
+            let correctAnswer = `${nA}/${dA}`;
+            let answers = [ correctAnswer, `${n1+n2}/${d1*d2}`, `${n1*n2}/${d1+d2}`, `${nA*2}/${dA}` ];
+             while(new Set(answers).size < 4) { answers[3] = `${Math.floor(Math.random()*5)+1}/${dA}`; }
+            q.options = this.shuffleOptions(answers);
+            q.correctIndex = q.options.indexOf(correctAnswer);
+        }
+        return q;
+    },
+    shuffleOptions(arr) {
+        let copy = [...arr];
+        for (let i = copy.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [copy[i], copy[j]] = [copy[j], copy[i]];
+        }
+        return copy;
+    },
+    drawPieChart(ctx, cx, cy, r, n, d) {
+        ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = "#1e293b"; ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = "#94a3b8"; ctx.stroke();
+        const anglePerPart = (Math.PI * 2) / d;
+        ctx.fillStyle = "#3b82f6"; 
+        for (let i = 0; i < n; i++) {
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, i * anglePerPart, (i + 1) * anglePerPart);
+            ctx.lineTo(cx, cy); ctx.fill();
+        }
+        ctx.strokeStyle = "#0f172a"; ctx.lineWidth = 2;
+        for (let i = 0; i < d; i++) {
+            ctx.beginPath(); ctx.moveTo(cx, cy);
+            ctx.lineTo(cx + r * Math.cos(i * anglePerPart), cy + r * Math.sin(i * anglePerPart));
+            ctx.stroke();
+        }
+    },
+    drawBarModel(ctx, x, y, w, h, n, d, color) {
+        ctx.fillStyle = "#1e293b"; ctx.fillRect(x, y, w, h);
+        ctx.strokeStyle = "#94a3b8"; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+        const partW = w / d;
+        ctx.fillStyle = color;
+        for (let i = 0; i < n; i++) ctx.fillRect(x + i * partW, y, partW, h);
+        ctx.strokeStyle = "#0f172a";
+        for (let i = 1; i < d; i++) {
+            ctx.beginPath(); ctx.moveTo(x + i * partW, y); ctx.lineTo(x + i * partW, y + h); ctx.stroke();
+        }
+    }
+};
+
+// --- ENGINE & PHYSICS ---
+class AABB {
+    constructor(x, y, w, h) { this.x = x; this.y = y; this.w = w; this.h = h; }
+    intersects(other) {
+        return this.x < other.x + other.w && this.x + this.w > other.x &&
+               this.y < other.y + other.h && this.y + this.h > other.y;
+    }
+}
+
+class Entity extends AABB {
+    constructor(x, y, w, h) { super(x, y, w, h); this.vx = 0; this.vy = 0; this.dead = false; this.type = 'entity'; }
+    update(dt) {}
+    draw(ctx) {}
+}
+
+class Player extends Entity {
+    constructor(x, y) {
+        super(x, y, 24, 32); 
+        this.gravity = 1300; 
+        this.jumpForce = -850; 
+        this.acceleration = 1600;
+        this.maxSpeed = 240; 
+        this.isGrounded = false;
+        this.facingLeft = false;
+        this.walkCycle = 0;
+        this.invulnerableTime = 0;
+    }
+    update(dt) {
+        if (this.invulnerableTime > 0) this.invulnerableTime -= dt;
+
+        let moveForce = 0;
+        if (keys.left) { moveForce -= this.acceleration; this.facingLeft = true; }
+        if (keys.right) { moveForce += this.acceleration; this.facingLeft = false; }
+
+        if (moveForce !== 0) {
+            this.vx += moveForce * dt;
+            this.vx = Math.max(-this.maxSpeed, Math.min(this.maxSpeed, this.vx));
+            this.walkCycle += Math.abs(this.vx) * dt;
+        } else {
+            this.vx *= this.isGrounded ? 0.8 : 0.95; 
+            this.walkCycle = 0;
+        }
+
+        // X Collision
+        this.x += this.vx * dt;
+        this.handleCollisions(true);
+
+        // Y Axis movement
+        this.vy += this.gravity * dt;
+        if (keys.up && this.isGrounded) {
+            this.vy = this.jumpForce;
+            this.isGrounded = false;
+            createJumpParticles(this.x + this.w/2, this.y + this.h);
+        }
+
+        // Y Collision
+        this.y += this.vy * dt;
+        this.isGrounded = false; 
+        this.handleCollisions(false);
+
+        if (this.x < 0) { this.x = 0; this.vx = 0; }
+        if (this.y > mapHeight * TILE_SIZE + 200) hurtPlayer();
+    }
+    handleCollisions(xAxis) {
+        let colStart = Math.floor(this.x / TILE_SIZE), colEnd = Math.floor((this.x + this.w) / TILE_SIZE);
+        let rowStart = Math.floor(this.y / TILE_SIZE), rowEnd = Math.floor((this.y + this.h) / TILE_SIZE);
+
+        for (let r = rowStart; r <= rowEnd; r++) {
+            for (let c = colStart; c <= colEnd; c++) {
+                if (r >= 0 && r < mapHeight && c >= 0 && c < mapWidth) {
+                    if (tileMap[r][c] === '2') { 
+                        let tileRect = { x: c * TILE_SIZE, y: r * TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE };
+                        if (this.intersects(tileRect)) {
+                            if (xAxis) {
+                                if (this.vx > 0) { this.x = tileRect.x - this.w; this.vx = 0; } 
+                                else if (this.vx < 0) { this.x = tileRect.x + tileRect.w; this.vx = 0; }
+                            } else {
+                                if (this.vy > 0) { this.y = tileRect.y - this.h; this.vy = 0; this.isGrounded = true; } 
+                                else if (this.vy < 0) { this.y = tileRect.y + tileRect.h; this.vy = 0; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    draw(ctx) {
+        if (this.invulnerableTime > 0 && Math.floor(this.invulnerableTime * 10) % 2 === 0) return; 
+        ctx.save();
+        let cx = this.x + this.w/2; let cy = this.y + this.h; 
+        ctx.translate(cx, cy);
+        if (this.facingLeft) ctx.scale(-1, 1); // Flip everything horizontally
+
+        let squash = 1; let stretch = 1;
+        if (!this.isGrounded) { stretch = 1.05; squash = 0.95; }
+        ctx.scale(squash, stretch);
+
+        let bounce = Math.sin(this.walkCycle * 0.2) * 2;
+
+        // Fraction Frog Design
+        ctx.fillStyle = "#16a34a"; ctx.beginPath(); ctx.ellipse(-6, -6, 6, 4, 0, 0, Math.PI*2); ctx.fill(); // Back Leg
+        ctx.fillStyle = "#22c55e"; ctx.beginPath(); ctx.ellipse(0, -14 - bounce, 14, 12, 0, 0, Math.PI*2); ctx.fill(); // Body
+        ctx.fillStyle = "#86efac"; ctx.beginPath(); ctx.ellipse(2, -12 - bounce, 8, 8, 0, 0, Math.PI*2); ctx.fill(); // Belly
+        ctx.fillStyle = "#22c55e"; ctx.beginPath(); ctx.ellipse(6, -6 - bounce/2, 6, 4, 0, 0, Math.PI*2); ctx.fill(); // Front Leg
+        ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(4, -22 - bounce, 6, 0, Math.PI*2); ctx.fill(); // Front eye
+        ctx.beginPath(); ctx.arc(-4, -24 - bounce, 5, 0, Math.PI*2); ctx.fill(); // Back eye
+        ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(6, -22 - bounce, 2.5, 0, Math.PI*2); ctx.fill(); // Pupil
+        ctx.beginPath(); ctx.arc(-2, -24 - bounce, 2, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#7c3aed"; ctx.beginPath(); ctx.ellipse(0, -25 - bounce, 12, 4, 0, 0, Math.PI*2); ctx.fill(); // Brim
+        ctx.beginPath(); ctx.moveTo(-8, -25 - bounce); ctx.lineTo(8, -25 - bounce); ctx.lineTo(0, -42 - bounce); ctx.fill(); // Cone
+        ctx.fillStyle = "#facc15"; ctx.beginPath(); ctx.arc(0, -32 - bounce, 2, 0, Math.PI*2); ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+class QuestionItem extends Entity {
+    constructor(x, y) {
+        super(x + 4, y + 4, 32, 32); 
+        this.type = 'question';
+        this.startY = this.y;
+        this.animTimer = Math.random() * 10;
+    }
+    update(dt) {
+        this.animTimer += dt;
+        this.y = this.startY + Math.sin(this.animTimer * 3) * 6;
+    }
+    draw(ctx) {
+        let cx = this.x + this.w/2; let cy = this.y + this.h/2;
+        ctx.save(); ctx.translate(cx, cy);
+        let spin = Math.sin(this.animTimer * 2);
+        ctx.scale(spin, 1); 
+
+        ctx.fillStyle = "#fbbf24";
+        ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(16, 0); ctx.lineTo(0, 16); ctx.lineTo(-16, 0); ctx.fill();
+        ctx.fillStyle = "#fef08a";
+        ctx.beginPath(); ctx.moveTo(0, -12); ctx.lineTo(12, 0); ctx.lineTo(0, 12); ctx.lineTo(-12, 0); ctx.fill();
+        
+        ctx.fillStyle = "#854d0e";
+        ctx.font = "bold 20px Arial"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.scale(Math.sign(spin) === 0 ? 1 : Math.sign(spin), 1); 
+        ctx.fillText("?", 0, 1);
+        ctx.restore();
+    }
+}
+
+class WalkerEnemy extends Entity {
+    constructor(x, y) {
+        super(x, y + 8, 24, 24); 
+        this.vx = -60; this.vy = 0; this.type = 'enemy'; this.animTimer = 0;
+    }
+    update(dt) {
+        this.animTimer += dt; this.vy += 1400 * dt; 
+        this.x += this.vx * dt;
+        
+        let colStart = Math.floor(this.x / TILE_SIZE), colEnd = Math.floor((this.x + this.w) / TILE_SIZE);
+        let r = Math.floor((this.y + this.h - 1) / TILE_SIZE); 
+        
+        if (r >= 0 && r < mapHeight) {
+            if (this.vx < 0 && (colStart < 0 || tileMap[r][colStart] === '2')) { this.x = (colStart + 1) * TILE_SIZE; this.vx *= -1; } 
+            else if (this.vx > 0 && (colEnd >= mapWidth || tileMap[r][colEnd] === '2')) { this.x = colEnd * TILE_SIZE - this.w; this.vx *= -1; }
+
+            let lookAheadCol = this.vx > 0 ? colEnd : colStart;
+            if (lookAheadCol >= 0 && lookAheadCol < mapWidth) {
+                let floorTile = r + 1 < mapHeight ? tileMap[r + 1][lookAheadCol] : '0';
+                if (floorTile !== '2') this.vx *= -1;
+            }
+        }
+
+        this.y += this.vy * dt;
+        let bottomRow = Math.floor((this.y + this.h) / TILE_SIZE);
+        if (bottomRow >= 0 && bottomRow < mapHeight) {
+            let centerCol = Math.floor((this.x+this.w/2)/TILE_SIZE);
+            if (centerCol >= 0 && centerCol < mapWidth && tileMap[bottomRow][centerCol] === '2') {
+                this.y = bottomRow * TILE_SIZE - this.h; this.vy = 0;
+            }
+        } else if (bottomRow > mapHeight + 5) {
+            this.dead = true;
+        }
+    }
+    draw(ctx) {
+        let cx = this.x + this.w/2; let cy = this.y + this.h;
+        ctx.save(); ctx.translate(cx, cy);
+        let bounce = Math.sin(this.animTimer * 10) * 3;
+        
+        ctx.fillStyle = "#ef4444"; 
+        ctx.beginPath(); ctx.moveTo(-12, 0); ctx.quadraticCurveTo(-12, -20 - bounce, 0, -20 - bounce); ctx.quadraticCurveTo(12, -20 - bounce, 12, 0); ctx.fill();
+        ctx.fillStyle = "white";
+        ctx.beginPath(); ctx.arc(-4 + (this.vx>0?2:-2), -10 - bounce/2, 3, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(4 + (this.vx>0?2:-2), -10 - bounce/2, 3, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "black";
+        ctx.beginPath(); ctx.arc(-4 + (this.vx>0?3:-3), -10 - bounce/2, 1.5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(4 + (this.vx>0?3:-3), -10 - bounce/2, 1.5, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+class FlyerEnemy extends Entity {
+    constructor(x, y) {
+        super(x, y, 24, 24); this.startY = y; this.startX = x; this.type = 'enemy'; this.animTimer = Math.random() * 10; this.range = 80;
+    }
+    update(dt) {
+        this.animTimer += dt;
+        this.x = this.startX + Math.sin(this.animTimer * 2) * this.range;
+        this.y = this.startY + Math.cos(this.animTimer * 3) * 10;
+    }
+    draw(ctx) {
+        let cx = this.x + this.w/2; let cy = this.y + this.h/2;
+        ctx.save(); ctx.translate(cx, cy);
+        ctx.fillStyle = "#64748b"; ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "#ef4444"; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = "#cbd5e1"; ctx.lineWidth = 2; let wingSpin = this.animTimer * 20;
+        ctx.save(); ctx.translate(-12, -5); ctx.rotate(wingSpin); ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.stroke(); ctx.restore();
+        ctx.save(); ctx.translate(12, -5); ctx.rotate(-wingSpin); ctx.beginPath(); ctx.moveTo(-6, 0); ctx.lineTo(6, 0); ctx.stroke(); ctx.restore();
+        ctx.restore();
+    }
+}
+
+class JumperEnemy extends Entity {
+    constructor(x, y) {
+        super(x, y + 8, 24, 24);
+        this.vy = 0;
+        this.type = 'enemy';
+        this.animTimer = 0;
+        this.jumpTimer = 0;
+        this.isGrounded = false;
+    }
+    update(dt) {
+        this.animTimer += dt;
+        this.vy += 1400 * dt;
+        this.y += this.vy * dt;
+
+        let bottomRow = Math.floor((this.y + this.h) / TILE_SIZE);
+        if (bottomRow >= 0 && bottomRow < mapHeight) {
+            let centerCol = Math.floor((this.x+this.w/2)/TILE_SIZE);
+            if (centerCol >= 0 && centerCol < mapWidth && tileMap[bottomRow][centerCol] === '2') {
+                this.y = bottomRow * TILE_SIZE - this.h;
+                this.vy = 0;
+                this.isGrounded = true;
+            } else {
+                this.isGrounded = false;
+            }
+        }
+        if (this.isGrounded) {
+            this.jumpTimer += dt;
+            if (this.jumpTimer > 1.5) {
+                this.vy = -700; // Big jump!
+                this.jumpTimer = 0;
+                this.isGrounded = false;
+                createJumpParticles(this.x + this.w/2, this.y + this.h);
+            }
+        }
+        if (this.y > mapHeight * TILE_SIZE + 50) this.dead = true;
+    }
+    draw(ctx) {
+        let cx = this.x + this.w/2; let cy = this.y + this.h;
+        ctx.save(); ctx.translate(cx, cy);
+        let squash = this.isGrounded ? (1 - Math.min(this.jumpTimer, 1)*0.2) : 1.2;
+        let stretch = this.isGrounded ? (1 + Math.min(this.jumpTimer, 1)*0.2) : 0.8;
+        ctx.scale(stretch, squash);
+
+        ctx.fillStyle = "#ec4899"; // Pink jumper
+        ctx.beginPath(); ctx.moveTo(-12, 0); ctx.quadraticCurveTo(-12, -24, 0, -24); ctx.quadraticCurveTo(12, -24, 12, 0); ctx.fill();
+        
+        ctx.fillStyle = "white";
+        ctx.beginPath(); ctx.arc(-4, -12, 4, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(4, -12, 4, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = "black";
+        ctx.beginPath(); ctx.arc(-4, -12, 2, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(4, -12, 2, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+class Particle {
+    constructor(x, y, color) {
+        this.x = x; this.y = y; this.vx = (Math.random() - 0.5) * 200; this.vy = (Math.random() - 1) * 200; this.life = 1.0; this.color = color;
+    }
+    update(dt) { this.x += this.vx * dt; this.vy += 800 * dt; this.y += this.vy * dt; this.life -= dt * 2; }
+    draw(ctx) { ctx.globalAlpha = Math.max(0, this.life); ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, 4, 4); ctx.globalAlpha = 1.0; }
+}
+
+// --- GAME LOGIC ---
+function loadLevel(index) {
+    if (index >= levelsData.length) { winGame(); return; }
+    currentLevelIndex = index; const level = levelsData[index];
+    
+    tileMap = []; entities = []; particles = [];
+    mapHeight = level.map.length; mapWidth = level.map[0].length;
+    
+    for (let r = 0; r < mapHeight; r++) {
+        let row = [];
+        for (let c = 0; c < mapWidth; c++) {
+            let char = level.map[r][c];
+            if (char === '2' || char === '0') { row.push(char); } 
+            else {
+                row.push('.');
+                if (char === 'E') entities.push(new WalkerEnemy(c * TILE_SIZE, r * TILE_SIZE));
+                if (char === 'F') entities.push(new FlyerEnemy(c * TILE_SIZE, r * TILE_SIZE));
+                if (char === 'J') entities.push(new JumperEnemy(c * TILE_SIZE, r * TILE_SIZE)); 
+                if (char === 'Q') entities.push(new QuestionItem(c * TILE_SIZE, r * TILE_SIZE)); 
+                if (char === 'X') entities.push({ type: 'portal', x: c * TILE_SIZE, y: r * TILE_SIZE, w: TILE_SIZE, h: TILE_SIZE, intersects: Entity.prototype.intersects });
+            }
+        }
+        tileMap.push(row);
+    }
+    player = new Player(50, 50);
+    document.getElementById('hud-level').innerText = index + 1;
+    document.getElementById('hud-status').innerText = "Find the portal!";
+    showLesson(level);
+}
+
+function showLesson(level) {
+    gameState = 'LESSON';
+    document.getElementById('lesson-title').innerText = level.title;
+    document.getElementById('lesson-content').innerHTML = level.lesson;
+    document.getElementById('ui-lesson').classList.remove('hidden');
+    document.getElementById('ui-hud').classList.add('hidden');
+    if (useTouchControls) document.getElementById('ui-touch').classList.add('hidden');
+}
+
+window.closeLessonAndPlay = function() {
+    document.getElementById('ui-lesson').classList.add('hidden');
+    document.getElementById('ui-hud').classList.remove('hidden');
+    if (useTouchControls) {
+        document.getElementById('ui-touch').classList.remove('hidden');
+        document.getElementById('ui-touch').style.display = 'flex';
+    }
+    gameState = 'PLAYING';
+    lastTime = performance.now();
+    keys.left = false; keys.right = false; keys.up = false;
+    requestAnimationFrame(gameLoop);
+}
+
+function triggerQuestion(ent) {
+    for(let i=0; i<15; i++) particles.push(new Particle(ent.x + ent.w/2, ent.y + ent.h/2, "#fbbf24"));
+    const levelData = levelsData[currentLevelIndex];
+    const q = MathSystem.generateQuestion(levelData.type);
+    showQuestion(q);
+}
+
+function showQuestion(q) {
+    gameState = 'QUESTION';
+    keys.left = false; keys.right = false; keys.up = false;
+    document.getElementById('ui-question').classList.remove('hidden');
+    document.getElementById('question-text').innerText = q.text;
+    qCtx.clearRect(0, 0, qCanvas.width, qCanvas.height);
+    if (q.drawVisual) q.drawVisual(qCtx, qCanvas.width, qCanvas.height);
+    
+    const optsContainer = document.getElementById('question-options');
+    optsContainer.innerHTML = '';
+    q.options.forEach((opt, index) => {
+        const btn = document.createElement('button');
+        btn.className = "p-4 text-2xl font-bold bg-slate-800 hover:bg-slate-700 text-white border-2 border-slate-600 rounded-xl transition-colors";
+        btn.innerText = opt;
+        btn.onclick = () => answerQuestion(index === q.correctIndex);
+        optsContainer.appendChild(btn);
+    });
+    document.getElementById('question-feedback').className = "mt-6 text-2xl font-bold hidden h-8";
+}
+
+function answerQuestion(isCorrect) {
+    const feedback = document.getElementById('question-feedback');
+    feedback.classList.remove('hidden');
+    document.querySelectorAll('#question-options button').forEach(b => b.disabled = true);
+
+    if (isCorrect) {
+        feedback.innerText = "Correct! +100 Points";
+        feedback.className = "mt-6 text-2xl font-bold text-emerald-400 h-8";
+        score += pointsPerQuestion;
+        updateScore();
+        saveScoreToCloud();
+    } else {
+        feedback.innerText = "Incorrect!";
+        feedback.className = "mt-6 text-2xl font-bold text-red-400 h-8";
+    }
+
+    setTimeout(() => {
+        document.getElementById('ui-question').classList.add('hidden');
+        gameState = 'PLAYING';
+        lastTime = performance.now();
+        requestAnimationFrame(gameLoop);
+    }, 1500);
+}
+
+function hurtPlayer() {
+    if (player.invulnerableTime > 0) return;
+    player.invulnerableTime = 2.0; 
+    score = Math.max(0, score - 25); updateScore(); saveScoreToCloud();
+    player.vy = -400;
+    if (player.y > mapHeight * TILE_SIZE) {
+        player.x = 50; player.y = 50; player.vx = 0; player.vy = 0;
+    }
+}
+
+function updateScore() { document.getElementById('hud-score').innerText = score; }
+
+function createJumpParticles(x, y) {
+    for(let i=0; i<5; i++) particles.push(new Particle(x, y, "#94a3b8"));
+}
+
+function winGame() {
+    gameState = 'VICTORY';
+    document.getElementById('ui-hud').classList.add('hidden');
+    document.getElementById('ui-touch').classList.add('hidden');
+    document.getElementById('ui-end').classList.remove('hidden');
+    document.getElementById('end-title').innerText = "Victory!";
+    document.getElementById('end-title').className = "text-6xl font-black text-emerald-400 mb-4 drop-shadow-lg";
+    document.getElementById('end-score').innerText = score;
+    saveScoreToCloud();
+}
+
+// --- GLOBAL WINDOW METHODS FOR UI ---
+window.loginUser = function() {
+    const input = document.getElementById('login-username').value.trim();
+    if (!input) return;
+    username = input;
+    isAdmin = (username.toLowerCase() === 'admin');
+    
+    document.getElementById('ui-login').classList.add('hidden');
+    document.getElementById('ui-menu').classList.remove('hidden');
+    document.getElementById('display-username').innerText = username;
+    
+    if (isAdmin) {
+        document.getElementById('admin-controls').classList.remove('hidden');
+    }
+};
+
+window.startGame = function(touch) {
+    useTouchControls = touch;
+    document.getElementById('ui-menu').style.opacity = '0';
+    setTimeout(() => {
+        document.getElementById('ui-menu').classList.add('hidden');
+        score = 0; updateScore(); loadLevel(0);
+    }, 300);
+};
+
+window.adminStartLevel = function(levelIndex) {
+    useTouchControls = false; // Default to keyboard for quick admin tests
+    document.getElementById('ui-menu').style.opacity = '0';
+    setTimeout(() => {
+        document.getElementById('ui-menu').classList.add('hidden');
+        score = 0; updateScore(); loadLevel(levelIndex);
+    }, 300);
+};
+
+window.resetGameToMenu = function() {
+    document.getElementById('ui-end').classList.add('hidden');
+    document.getElementById('ui-lesson').classList.add('hidden');
+    document.getElementById('ui-hud').classList.add('hidden');
+    document.getElementById('ui-touch').classList.add('hidden');
+    document.getElementById('ui-question').classList.add('hidden');
+    
+    document.getElementById('ui-menu').classList.remove('hidden');
+    document.getElementById('ui-menu').style.opacity = '1';
+    gameState = 'MENU';
+};
+
+window.toggleFullscreen = function() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+            console.log(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
+};
+
+// --- MAIN LOOP ---
+function update(dt) {
+    if (gameState !== 'PLAYING') return;
+    player.update(dt);
+
+    for (let i = entities.length - 1; i >= 0; i--) {
+        let ent = entities[i];
+        if (ent.type === 'enemy') {
+            ent.update(dt);
+            if (player.intersects(ent)) {
+                if (player.vy > 0 && player.y + player.h < ent.y + ent.h/2 + 10) {
+                    ent.dead = true; player.vy = player.jumpForce * 0.8; 
+                    score += pointsPerEnemy; updateScore(); saveScoreToCloud();
+                    for(let p=0; p<15; p++) particles.push(new Particle(ent.x + ent.w/2, ent.y + ent.h/2, "#ef4444"));
+                } else { hurtPlayer(); }
+            }
+        } else if (ent.type === 'portal') {
+            if (player.intersects(ent)) { loadLevel(currentLevelIndex + 1); return; }
+        } else if (ent.type === 'question') {
+            ent.update(dt);
+            if (player.intersects(ent)) {
+                ent.dead = true;
+                triggerQuestion(ent);
+            }
+        }
+        if (ent.dead) entities.splice(i, 1);
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update(dt);
+        if (particles[i].life <= 0) particles.splice(i, 1);
+    }
+
+    let targetCamX = player.x + player.w/2 - CANVAS_WIDTH/2;
+    let targetCamY = player.y + player.h/2 - CANVAS_HEIGHT/2;
+    targetCamX = Math.max(0, Math.min(targetCamX, mapWidth * TILE_SIZE - CANVAS_WIDTH));
+    targetCamY = Math.max(0, Math.min(targetCamY, mapHeight * TILE_SIZE - CANVAS_HEIGHT));
+    camera.x += (targetCamX - camera.x) * 5 * dt;
+    camera.y += (targetCamY - camera.y) * 5 * dt;
+}
+
+function draw() {
+    ctx.fillStyle = "#0f172a"; ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    
+    // Background Stars Effect
+    ctx.fillStyle = "white";
+    for(let i=0; i<30; i++) {
+        let sx = (i * 47) % CANVAS_WIDTH;
+        let sy = (i * 91) % CANVAS_HEIGHT;
+        ctx.globalAlpha = Math.sin((performance.now() + i*1000) * 0.001) * 0.5 + 0.2;
+        ctx.fillRect(sx, sy, 2, 2);
+    }
+    ctx.globalAlpha = 1.0;
+
+    if (gameState === 'LOGIN' || gameState === 'MENU') return;
+
+    ctx.save(); ctx.translate(-Math.floor(camera.x), -Math.floor(camera.y));
+
+    let startCol = Math.max(0, Math.floor(camera.x / TILE_SIZE));
+    let endCol = Math.min(mapWidth, startCol + (CANVAS_WIDTH / TILE_SIZE) + 1);
+    let startRow = Math.max(0, Math.floor(camera.y / TILE_SIZE));
+    let endRow = Math.min(mapHeight, startRow + (CANVAS_HEIGHT / TILE_SIZE) + 1);
+
+    for (let r = startRow; r < endRow; r++) {
+        for (let c = startCol; c < endCol; c++) {
+            let tile = tileMap[r][c]; let tx = c * TILE_SIZE; let ty = r * TILE_SIZE;
+            if (tile === '2') {
+                let isTop = (r === 0 || tileMap[r-1][c] !== '2');
+                ctx.fillStyle = "#475569"; ctx.fillRect(tx, ty, TILE_SIZE, TILE_SIZE);
+                ctx.strokeStyle = "#334155"; ctx.lineWidth = 2; ctx.strokeRect(tx, ty, TILE_SIZE, TILE_SIZE);
+                ctx.beginPath(); ctx.moveTo(tx, ty + TILE_SIZE/2); ctx.lineTo(tx + TILE_SIZE, ty + TILE_SIZE/2); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(tx + TILE_SIZE/2, ty); ctx.lineTo(tx + TILE_SIZE/2, ty + TILE_SIZE/2); ctx.stroke();
+                if (isTop) { ctx.fillStyle = "#10b981"; ctx.fillRect(tx, ty, TILE_SIZE, 8); }
+            }
+        }
+    }
+
+    entities.forEach(ent => {
+        if (ent.type === 'portal') {
+            let spin = performance.now() / 200;
+            ctx.save(); ctx.translate(ent.x + ent.w/2, ent.y + ent.h/2); ctx.rotate(spin);
+            ctx.fillStyle = "#a855f7"; ctx.beginPath(); ctx.arc(0, 0, 16 + Math.sin(spin)*4, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "#f3e8ff"; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
+            ctx.restore();
+        } else { ent.draw(ctx); }
+    });
+
+    player.draw(ctx);
+    particles.forEach(p => p.draw(ctx));
+    ctx.restore();
+}
+
+function gameLoop(timestamp) {
+    if (gameState === 'PLAYING') {
+        let dt = (timestamp - lastTime) / 1000;
+        if (dt > 0.05) dt = 0.05; // Prevent large skips
+        lastTime = timestamp;
+        update(dt); draw();
+        animationFrameId = requestAnimationFrame(gameLoop);
+    }
+}
+
+// --- INPUT & INIT ---
+window.addEventListener('keydown', (e) => {
+    if (gameState !== 'PLAYING') return;
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = true;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+    if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') keys.up = true;
+});
+window.addEventListener('keyup', (e) => {
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') keys.left = false;
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+    if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'Space') keys.up = false;
+});
+
+function bindTouch(id, keyObj) {
+    const el = document.getElementById(id);
+    if(!el) return;
+    const press = (e) => { e.preventDefault(); keys[keyObj] = true; };
+    const release = (e) => { e.preventDefault(); keys[keyObj] = false; };
+    el.addEventListener('touchstart', press, {passive: false});
+    el.addEventListener('touchend', release, {passive: false});
+    el.addEventListener('touchcancel', release, {passive: false});
+    el.addEventListener('mousedown', press);
+    el.addEventListener('mouseup', release);
+    el.addEventListener('mouseleave', release);
+}
+bindTouch('btn-left', 'left'); bindTouch('btn-right', 'right'); bindTouch('btn-jump', 'up');
+
+// Initialize
+initFirebase();
+window.onload = () => draw();
+</script>
+</body>
+</html>
